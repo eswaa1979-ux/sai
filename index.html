@@ -246,12 +246,9 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 
     window[cbName] = finish;
     timer = setTimeout(function () { finish({ error: "Timed out waiting for the backend" }); }, 90000);
-    var payload = JSON.stringify({ text: text.slice(0, 1500) });
+    var payload = JSON.stringify({ text: text.slice(0, 1500), sid: sid, detail: detailed ? 1 : 0 });
     var url = cfg.url + (cfg.url.indexOf("?") < 0 ? "?" : "&") + "callback=" + cbName +
       "&secret=" + encodeURIComponent(cfg.secret) +
-      "&sid=" + encodeURIComponent(sid) +
-      "&detail=" + (detailed ? "1" : "0") +
-      "&t=" + Date.now() +
       "&q=" + encodeURIComponent(payload);
 
     function viaScript() {

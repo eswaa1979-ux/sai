@@ -48,6 +48,39 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .set label { flex-direction: column; align-items: stretch; gap: 4px; cursor: default; }
 .hint { color: var(--muted); font-size: 13px; text-align: center; }
 .warn { color: var(--warn); }
+
+.files { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.files h2 { margin: 0; font-size: 15px; font-weight: 600; color: var(--cyan); }
+.drop { border: 1px dashed var(--cyan-dim); border-radius: 12px; padding: 14px; text-align: center; color: var(--muted); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: center; }
+.drop.over { border-color: var(--cyan); background: rgba(79,216,255,0.07); color: var(--ink); }
+.driverow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+select { flex: 1; min-width: 160px; background: var(--panel); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: 14px "Segoe UI", system-ui, sans-serif; }
+.note { color: var(--muted); font-size: 13px; }
+
+.dashwrap { width: 100%; max-width: 1100px; margin: 0 auto; padding: 0 16px 48px; }
+.dash { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.dash[hidden] { display: none; }
+.dashhead { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dashhead h2 { margin: 0; font-size: 22px; color: var(--cyan); font-weight: 600; }
+.dashhead div { display: flex; gap: 8px; }
+#dsummary { color: var(--ink); margin: 10px 0 16px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.kpi { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: rgba(79,216,255,0.05); }
+.kv { font-size: 26px; font-weight: 600; color: var(--cyan); line-height: 1.2; overflow-wrap: anywhere; }
+.kl { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-bottom: 16px; }
+.chartcard { border: 1px solid var(--line); border-radius: 12px; padding: 12px; min-width: 0; }
+.chartcard h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--ink); }
+.chartbox { position: relative; height: 260px; }
+.lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.lists h3 { margin: 0 0 6px; font-size: 15px; color: var(--cyan); }
+.lists ul { margin: 0; padding-left: 20px; color: var(--ink); font-size: 14px; }
+.lists li { margin-bottom: 6px; }
+@media print {
+  body > .wrap { display: none; }
+  html, body { background: #05080f; }
+  .dashhead div { display: none; }
+}
 </style>
 </head>
 <body>
@@ -73,6 +106,23 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     <button type="button" id="send">Send</button>
   </div>
 
+  <div class="files" id="files">
+    <h2>Files and dashboards</h2>
+    <div class="drop" id="drop">
+      <span>Drop a file here (Excel, CSV, PDF, Word, text or image)</span>
+      <button type="button" class="small" id="pick">Choose file</button>
+      <input type="file" id="fileinput" hidden accept=".xlsx,.xls,.xlsm,.csv,.tsv,.txt,.md,.json,.pdf,.docx,.png,.jpg,.jpeg,.webp,.gif">
+    </div>
+    <input type="text" id="fq" placeholder="What should I look for? (optional, for example: which department costs most?)" aria-label="What should Sai look for in the file">
+    <div class="driverow">
+      <select id="drive" aria-label="Files in your Sai Files folder on Google Drive"><option value="">Google Drive: press Refresh</option></select>
+      <button type="button" class="small" id="driverefresh">Refresh</button>
+      <button type="button" class="small" id="driveload">Load from Drive</button>
+    </div>
+    <div class="note" id="drivenote">Drive folder name: Sai Files (created in your Google Drive the first time you press Refresh).</div>
+    <div class="note">Spreadsheets are read on your computer and only totals, counts and column names are sent. Documents, PDFs and images have to be sent to Claude to be read.</div>
+  </div>
+
   <details id="settings" open>
     <summary>Settings</summary>
     <div class="set">
@@ -81,7 +131,20 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       <button type="button" id="save">Save settings</button>
     </div>
   </details>
-  <div class="hint" id="hint">Try: "Sai, give me my morning briefing." Tick Detailed answers for longer replies on screen. Use Chrome or Edge.</div>
+  <div class="hint" id="hint">Try: "Sai, give me my morning briefing." Tick Detailed answers for longer replies on screen. Drop a spreadsheet, PDF, Word file or image into the Files box to have it analyzed. Use Chrome or Edge.</div>
+</div>
+
+<div class="dashwrap">
+  <section class="dash" id="dash" hidden aria-label="Dashboard">
+    <div class="dashhead"><h2 id="dtitle"></h2><div><button type="button" class="small" id="dprint">Print / save as PDF</button><button type="button" class="small" id="dclose">Close</button></div></div>
+    <p id="dsummary"></p>
+    <div class="kpis" id="dkpis"></div>
+    <div class="charts" id="dcharts"></div>
+    <div class="lists">
+      <div><h3>Insights</h3><ul id="dinsights"></ul></div>
+      <div><h3>Checks</h3><ul id="dchecks"></ul></div>
+    </div>
+  </section>
 </div>
 
 <script>
@@ -379,14 +442,29 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     } catch (e) { viaScript(); }
   }
 
-  function handleHeard(t) {
+  // Finds the wake word in what was heard. "Sai" is often heard as sigh, shy, say, sir and so on,
+  // so the strong spellings match anywhere and the looser ones only at the very start.
+  function findWake(t) {
+    var s = String(t || "").trim(), m;
+    m = s.match(/\b(sai|saii|sigh|shai|sye|sy)\b[,.!?]?\s*(.*)$/i);
+    if (m) { return { cmd: m[2].trim() }; }
+    m = s.match(/^(?:hey|hi|ok|okay|hello)?[,\s]*(say|shy|cy|sci|psi|sie|si|sir|thai|sa|shi|ci|psy|sighed|sign)\b[,.!?]?\s*(.*)$/i);
+    if (m) { return { cmd: m[2].trim() }; }
+    return null;
+  }
+
+  function handleHeard(t, alts) {
     if (!t || busy || speaking) { return; }
     $("heard").textContent = t;
     var cmd = t;
     if ($("wake").checked && !awaiting) {
-      var m = t.match(/\b(sai|sigh|sy|shy|cy)\b[,.!?]?\s*(.*)$/i);
-      if (!m) { return; }
-      cmd = m[2].trim();
+      var hit = null, list = [t].concat(alts || []);
+      for (var i = 0; i < list.length && !hit; i++) {
+        var w = findWake(list[i]);
+        if (w) { hit = w; }
+      }
+      if (!hit) { $("heard").textContent = t + "   (no wake word, say \"Sai\" first)"; return; }
+      cmd = hit.cmd;
       if (!cmd) { awaiting = true; speakOrSkip("Yes?"); return; }
     }
     awaiting = false;
@@ -398,11 +476,16 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     rec.lang = "en-IN";
     rec.continuous = true;
     rec.interimResults = true;
+    rec.maxAlternatives = 5;
     rec.onresult = function (ev) {
       var interim = "";
       for (var i = ev.resultIndex; i < ev.results.length; i++) {
         var r = ev.results[i];
-        if (r.isFinal) { handleHeard(r[0].transcript.trim()); } else { interim += r[0].transcript; }
+        if (r.isFinal) {
+          var alts = [];
+          for (var a = 1; a < r.length; a++) { alts.push(r[a].transcript.trim()); }
+          handleHeard(r[0].transcript.trim(), alts);
+        } else { interim += r[0].transcript; }
       }
       if (interim) { $("heard").textContent = interim; }
     };
@@ -439,6 +522,716 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     var greet = h < 12 ? "Good morning" : (h < 17 ? "Good afternoon" : "Good evening");
     speakOrSkip(greet + ". Sai online. How can I help?");
   });
+
+  // ================= Files: read, analyze, dashboards =================
+  var CDN = "https://cdnjs.cloudflare.com/ajax/libs/";
+  var LIBS = {
+    xlsx:    { url: CDN + "xlsx/0.18.5/xlsx.full.min.js",            ok: function () { return window.XLSX; } },
+    chart:   { url: CDN + "Chart.js/4.4.1/chart.umd.min.js",         ok: function () { return window.Chart; } },
+    mammoth: { url: CDN + "mammoth/1.6.0/mammoth.browser.min.js",    ok: function () { return window.mammoth; } },
+    pdf:     { url: CDN + "pdf.js/3.11.174/pdf.min.js",              ok: function () { return window.pdfjsLib; } }
+  };
+  var PDF_WORKER = CDN + "pdf.js/3.11.174/pdf.worker.min.js";
+  var libWait = {};
+
+  function loadLib(key) {
+    var L = LIBS[key];
+    if (L.ok()) { return Promise.resolve(); }
+    if (libWait[key]) { return libWait[key]; }
+    libWait[key] = new Promise(function (res, rej) {
+      var s = document.createElement("script");
+      s.src = L.url; s.async = true;
+      s.onload = function () {
+        if (L.ok()) { res(); } else { delete libWait[key]; rej(new Error("The " + key + " reader did not start.")); }
+      };
+      s.onerror = function () {
+        delete libWait[key];
+        rej(new Error("Could not load the " + key + " reader. Your network may block cdnjs.cloudflare.com."));
+      };
+      document.head.appendChild(s);
+    });
+    return libWait[key];
+  }
+
+  // ---- talking to the backend (fetch without cookies, script tag as fallback) ----
+  var cbCounter = 0;
+  function callBackend(obj, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var cbName = "saicbf" + Date.now() + "_" + (cbCounter++);
+      var payload = JSON.stringify(Object.assign({ sid: sid }, obj));
+      var url = cfg.url + (cfg.url.indexOf("?") < 0 ? "?" : "&") + "callback=" + cbName +
+        "&secret=" + encodeURIComponent(cfg.secret) + "&q=" + encodeURIComponent(payload);
+      var script = null, done = false, timer = null, tried = false;
+
+      function finish(d, err) {
+        if (done) { return; }
+        done = true;
+        clearTimeout(timer);
+        try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+        if (script && script.parentNode) { script.parentNode.removeChild(script); }
+        if (err) { reject(err); }
+        else if (d && d.error) { reject(new Error(d.error === "Wrong secret" ? "That passphrase was rejected. Please check settings." : String(d.error))); }
+        else { resolve(d || {}); }
+      }
+      function viaScript() {
+        script = document.createElement("script");
+        script.referrerPolicy = "no-referrer";
+        script.onerror = function () { finish(null, new Error("Could not load the backend. Check the link, and that the latest version is deployed.")); };
+        script.src = url;
+        document.body.appendChild(script);
+      }
+      window[cbName] = function (d) { finish(d, null); };
+      timer = setTimeout(function () { finish(null, new Error("Timed out waiting for the backend")); }, timeoutMs || 120000);
+      try {
+        fetch(url, { method: "GET", credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer" })
+          .then(function (r) { return r.text(); })
+          .then(function (t) {
+            var a = t.indexOf("("), b = t.lastIndexOf(")");
+            if (a < 0 || b < a) { throw new Error("bad reply"); }
+            finish(JSON.parse(t.slice(a + 1, b)), null);
+          })
+          .catch(function () { if (!done && !tried) { tried = true; viaScript(); } });
+      } catch (e) { viaScript(); }
+    });
+  }
+
+  // Sends a long string to the backend in small pieces (5 at a time).
+  function uploadString(str, onProgress) {
+    var id = newSid(), size = 1400, parts = [], i;
+    for (i = 0; i < str.length; i += size) { parts.push(str.slice(i, i + size)); }
+    if (!parts.length) { return Promise.reject(new Error("There was nothing to send.")); }
+    if (parts.length > 400) { return Promise.reject(new Error("That is too large to send. Please use a smaller file.")); }
+    function sendPart(n, tries) {
+      return callBackend({ k: "chunk", id: id, n: n, d: parts[n] }, 40000).catch(function (e) {
+        if (tries < 2) { return sendPart(n, tries + 1); }
+        throw e;
+      });
+    }
+    return new Promise(function (resolve, reject) {
+      var next = 0, doneN = 0, failed = false;
+      function worker() {
+        if (failed || next >= parts.length) { return; }
+        var n = next++;
+        sendPart(n, 0).then(function () {
+          doneN++;
+          if (onProgress) { onProgress(doneN, parts.length); }
+          if (doneN === parts.length) { resolve({ id: id, of: parts.length }); } else { worker(); }
+        }, function (e) { failed = true; reject(e); });
+      }
+      for (var k = 0; k < Math.min(5, parts.length); k++) { worker(); }
+    });
+  }
+
+  // ---- reading values ----
+  var MONTHS = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+  function mkDate(y, mo, d) {
+    if (mo < 0 || mo > 11 || d < 1 || d > 31 || y < 1900 || y > 2200) { return null; }
+    var dt = new Date(y, mo, d);
+    return dt.getMonth() === mo ? dt : null;
+  }
+  function toDate(v) {
+    if (v instanceof Date) {
+      if (isNaN(v.getTime())) { return null; }
+      // spreadsheet dates can arrive a few minutes off midnight; snap them to the nearest day
+      var mid = new Date(v.getFullYear(), v.getMonth(), v.getDate());
+      var off = v.getTime() - mid.getTime();
+      if (off < 10 * 60000) { return mid; }
+      if (off > 86400000 - 10 * 60000) { return new Date(mid.getTime() + 86400000); }
+      return v;
+    }
+    if (typeof v !== "string") { return null; }
+    var t = v.trim(), m;
+    if ((m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T].*)?$/))) { return mkDate(+m[1], +m[2] - 1, +m[3]); }
+    if ((m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/))) {
+      var y = +m[3]; if (y < 100) { y += 2000; }
+      return mkDate(y, +m[2] - 1, +m[1]);   // day first, as used in India
+    }
+    if ((m = t.match(/^(\d{1,2})[ \-]([A-Za-z]{3})[a-z]*[ \-,]*(\d{2,4})$/))) {
+      var mo = MONTHS[m[2].toLowerCase()];
+      var yy = +m[3]; if (yy < 100) { yy += 2000; }
+      return mo === undefined ? null : mkDate(yy, mo, +m[1]);
+    }
+    return null;
+  }
+  function toNum(v) {
+    if (typeof v === "number") { return isFinite(v) ? v : null; }
+    if (typeof v !== "string") { return null; }
+    var t = v.trim().replace(/[,\s₹$€£]/g, "").replace(/%$/, "");
+    if (t === "" || !/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t)) { return null; }
+    var n = parseFloat(t);
+    return isFinite(n) ? n : null;
+  }
+  function isoDay(d) {
+    return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+  }
+  function r2(x) { return Math.round(x * 100) / 100; }
+  function fmt(n) {
+    if (n === null || n === undefined || isNaN(n)) { return "-"; }
+    return Math.abs(n) >= 1000 ? Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 }) : String(r2(n));
+  }
+  var NULLS = { "": 1, "na": 1, "n/a": 1, "#n/a": 1, "null": 1, "nan": 1, "-": 1, "--": 1, "none": 1 };
+  var PERSONAL = /name|e-?mail|phone|mobile|contact|aadhaa?r|\bpan\b|account|ifsc|address|dob|birth|passport/i;
+
+  function parseCSV(text) {
+    var first = (text.slice(0, 3000).split(/\r?\n/)[0]) || "";
+    var cT = (first.match(/\t/g) || []).length, cS = (first.match(/;/g) || []).length, cC = (first.match(/,/g) || []).length;
+    var delim = (cT > cC && cT > cS) ? "\t" : (cS > cC ? ";" : ",");
+    var rows = [], row = [], cell = "", q = false, i = (text.charCodeAt(0) === 0xFEFF) ? 1 : 0, n = text.length;
+    for (; i < n; i++) {
+      var ch = text.charAt(i);
+      if (q) {
+        if (ch === '"') { if (text.charAt(i + 1) === '"') { cell += '"'; i++; } else { q = false; } } else { cell += ch; }
+      } else if (ch === '"') { q = true; }
+      else if (ch === delim) { row.push(cell); cell = ""; }
+      else if (ch === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+      else if (ch !== "\r") { cell += ch; }
+    }
+    if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+
+  function rowEmpty(r) {
+    for (var i = 0; i < r.length; i++) { if (r[i] !== null && r[i] !== undefined && String(r[i]).trim() !== "") { return false; } }
+    return true;
+  }
+
+  function classify(name, raw) {
+    var n = raw.length, nn = 0, nNum = 0, nDate = 0, nText = 0, r, v;
+    var cleaned = new Array(n);
+    for (r = 0; r < n; r++) {
+      v = raw[r];
+      if (typeof v === "string") {
+        v = v.trim();
+        if (NULLS[v.toLowerCase()]) { v = null; }
+      }
+      if (v === undefined || v === null || (v instanceof Date && isNaN(v.getTime()))) { cleaned[r] = null; continue; }
+      cleaned[r] = v; nn++;
+      if (v instanceof Date) { nDate++; }
+      else if (toNum(v) !== null) { nNum++; }
+      else if (toDate(v)) { nDate++; }
+      else { nText++; }
+    }
+    var col = { name: name, missing: n - nn, vals: new Array(n), type: "empty" };
+    if (!nn) { return col; }
+    var type = "text";
+    if (nNum / nn >= 0.9) { type = "number"; }
+    else if (nDate / nn >= 0.9) { type = "date"; }
+    col.type = type;
+    var uniq = {}, u = 0;
+    for (r = 0; r < n; r++) {
+      v = cleaned[r];
+      if (v === null) { col.vals[r] = null; continue; }
+      var x;
+      if (type === "number") { x = toNum(v); }
+      else if (type === "date") { x = toDate(v); }
+      else { x = (v instanceof Date) ? isoDay(v) : String(v); }
+      col.vals[r] = x;
+      if (x !== null) {
+        var k = (type === "date") ? isoDay(x) : String(x);
+        if (!uniq.hasOwnProperty(k)) { uniq[k] = 1; u++; }
+      }
+    }
+    col.uniq = u; col.nn = nn;
+    if (type === "number" && nNum < nn) { col.invalid = nn - nNum; }
+    if (type === "text" && nNum > 0) { col.mixedNumbers = nNum; }
+    if (type === "number" && n > 20 && u / nn > 0.9 && /(^|[^a-z])(id|no|num|number|code|sr|sl|emp|ref|serial)($|[^a-z])/i.test(name)) {
+      var allInt = true;
+      for (r = 0; r < n; r++) { if (col.vals[r] !== null && col.vals[r] % 1 !== 0) { allInt = false; break; } }
+      if (allInt) { col.type = "id"; }
+    }
+    return col;
+  }
+
+  function buildTable(aoa) {
+    var h = 0;
+    while (h < aoa.length && rowEmpty(aoa[h])) { h++; }
+    if (h >= aoa.length) { throw new Error("That sheet looks empty."); }
+    // header: first row in the next few that has at least 2 filled cells
+    var hh = h;
+    for (var t = h; t < Math.min(aoa.length, h + 10); t++) {
+      var cnt = 0; for (var c = 0; c < aoa[t].length; c++) { if (String(aoa[t][c] == null ? "" : aoa[t][c]).trim() !== "") { cnt++; } }
+      if (cnt >= 2) { hh = t; break; }
+    }
+    var header = aoa[hh];
+    var body = [];
+    for (var i = hh + 1; i < aoa.length && body.length < 200000; i++) { if (!rowEmpty(aoa[i])) { body.push(aoa[i]); } }
+    if (!body.length) { throw new Error("I found headings but no data rows."); }
+    var width = header.length;
+    for (i = 0; i < Math.min(body.length, 300); i++) { if (body[i].length > width) { width = body[i].length; } }
+    var names = [], seen = {};
+    for (var j = 0; j < width; j++) {
+      var nm = String(header[j] == null ? "" : header[j]).trim().replace(/\s+/g, " ");
+      if (!nm) { nm = "Column " + (j + 1); }
+      if (seen[nm]) { seen[nm]++; nm = nm + " (" + seen[nm] + ")"; } else { seen[nm] = 1; }
+      names.push(nm);
+    }
+    var cols = [];
+    for (j = 0; j < width; j++) {
+      var raw = new Array(body.length);
+      for (i = 0; i < body.length; i++) { raw[i] = body[i][j]; }
+      var col = classify(names[j], raw);
+      if (col.type !== "empty") { cols.push(col); }
+    }
+    return { cols: cols, n: body.length, totalCols: width, rows: body };
+  }
+
+  function median(sorted) {
+    var m = sorted.length;
+    return m % 2 ? sorted[(m - 1) / 2] : (sorted[m / 2 - 1] + sorted[m / 2]) / 2;
+  }
+
+  function profileOf(tbl, fileName, sheetName, otherSheets) {
+    var cols = tbl.cols, n = tbl.n, out = [], i, r;
+    var cats = [], nums = [];
+    for (i = 0; i < Math.min(cols.length, 40); i++) {
+      var c = cols[i], p = { name: c.name, type: c.type, missing: c.missing };
+      if (c.type === "number") {
+        var a = [], sum = 0;
+        for (r = 0; r < n; r++) { if (c.vals[r] !== null) { a.push(c.vals[r]); sum += c.vals[r]; } }
+        a.sort(function (x, y) { return x - y; });
+        var mean = sum / a.length, ss = 0;
+        for (r = 0; r < a.length; r++) { ss += (a[r] - mean) * (a[r] - mean); }
+        var sd = Math.sqrt(ss / a.length), out3 = 0;
+        if (sd > 0) { for (r = 0; r < a.length; r++) { if (Math.abs(a[r] - mean) > 3 * sd) { out3++; } } }
+        p.min = r2(a[0]); p.max = r2(a[a.length - 1]); p.sum = r2(sum); p.mean = r2(mean); p.median = r2(median(a));
+        if (out3) { p.outliers_beyond_3sd = out3; }
+        if (c.invalid) { p.non_numeric_values = c.invalid; }
+        if (c.uniq <= 15) { p.distinct = c.uniq; }
+        nums.push(i);
+      } else if (c.type === "date") {
+        var mn = null, mx = null, months = {};
+        for (r = 0; r < n; r++) {
+          var d = c.vals[r]; if (!d) { continue; }
+          if (mn === null || d < mn) { mn = d; }
+          if (mx === null || d > mx) { mx = d; }
+          months[d.getFullYear() * 100 + d.getMonth()] = 1;
+        }
+        p.min = isoDay(mn); p.max = isoDay(mx); p.distinct_months = Object.keys(months).length;
+      } else if (c.type === "id") {
+        p.type = "identifier"; p.distinct = c.uniq;
+        if (c.nn > c.uniq) { p.duplicate_values = c.nn - c.uniq; }
+      } else {
+        p.distinct = c.uniq;
+        if (c.mixedNumbers) { p.numbers_mixed_in = c.mixedNumbers; }
+        if (PERSONAL.test(c.name)) { p.note = "personal column, values not shared"; }
+        else if (c.uniq > 25) { p.note = "many distinct values, not shared"; }
+        else {
+          var counts = {};
+          for (r = 0; r < n; r++) { var s = c.vals[r]; if (s !== null) { counts[s] = (counts[s] || 0) + 1; } }
+          var keys = Object.keys(counts).sort(function (x, y) { return counts[y] - counts[x]; }).slice(0, 12);
+          p.top = keys.map(function (k) { return [k, counts[k]]; });
+          if (c.uniq >= 2 && c.uniq <= 12) { cats.push(i); }
+        }
+      }
+      out.push(p);
+    }
+    // duplicates
+    var seen = {}, dups = 0;
+    for (r = 0; r < n; r++) {
+      var key = tbl.rows[r].join("\u0001");
+      if (seen[key]) { dups++; } else { seen[key] = 1; }
+    }
+    // breakdowns: totals and averages of numeric columns for small category columns
+    var breakdowns = [];
+    for (var ci = 0; ci < Math.min(cats.length, 3); ci++) {
+      for (var ni = 0; ni < Math.min(nums.length, 2); ni++) {
+        var cc = cols[cats[ci]], nc = cols[nums[ni]], sums = {}, cn = {};
+        for (r = 0; r < n; r++) {
+          var kk = cc.vals[r], vv = nc.vals[r];
+          if (kk === null || vv === null) { continue; }
+          sums[kk] = (sums[kk] || 0) + vv; cn[kk] = (cn[kk] || 0) + 1;
+        }
+        var bs = {};
+        Object.keys(sums).forEach(function (k) { bs[k] = { sum: r2(sums[k]), avg: r2(sums[k] / cn[k]) }; });
+        breakdowns.push({ group_by: cc.name, measure: nc.name, values: bs });
+      }
+    }
+    var prof = {
+      file: fileName, sheet: sheetName, other_sheets: otherSheets, rows: n,
+      columns_total: tbl.totalCols, columns: out, duplicate_rows: dups, breakdowns: breakdowns
+    };
+    var js = JSON.stringify(prof);
+    while (js.length > 11000 && prof.breakdowns.length) { prof.breakdowns.pop(); js = JSON.stringify(prof); }
+    while (js.length > 11000 && prof.columns.length > 12) { prof.columns.pop(); js = JSON.stringify(prof); }
+    return js;
+  }
+
+  // ---- charts and KPIs are calculated here from the full data ----
+  function findCol(tbl, name) {
+    var t = String(name || "").trim().toLowerCase(), i;
+    if (!t) { return -1; }
+    for (i = 0; i < tbl.cols.length; i++) { if (tbl.cols[i].name.toLowerCase() === t) { return i; } }
+    for (i = 0; i < tbl.cols.length; i++) { if (tbl.cols[i].name.toLowerCase().indexOf(t) !== -1) { return i; } }
+    return -1;
+  }
+
+  function kpiValue(tbl, k) {
+    var agg = String(k.agg || "count").toLowerCase(), ci = findCol(tbl, k.col), n = tbl.n, r;
+    if (ci < 0) { return agg === "count" ? { v: n } : null; }
+    var c = tbl.cols[ci];
+    if (agg === "unique") { return { v: c.uniq }; }
+    if (agg === "count") { return { v: n - c.missing }; }
+    if (c.type !== "number") { return null; }
+    var cnt = 0, sum = 0, mn = Infinity, mx = -Infinity;
+    for (r = 0; r < n; r++) {
+      var x = c.vals[r]; if (x === null) { continue; }
+      cnt++; sum += x; if (x < mn) { mn = x; } if (x > mx) { mx = x; }
+    }
+    if (!cnt) { return null; }
+    if (agg === "sum") { return { v: sum }; }
+    if (agg === "avg") { return { v: sum / cnt }; }
+    if (agg === "min") { return { v: mn }; }
+    if (agg === "max") { return { v: mx }; }
+    return null;
+  }
+
+  function chartData(tbl, spec) {
+    var xi = findCol(tbl, spec.x);
+    if (xi < 0) { return null; }
+    var xc = tbl.cols[xi];
+    var yi = spec.y ? findCol(tbl, spec.y) : -1;
+    if (yi >= 0 && tbl.cols[yi].type !== "number") { yi = -1; }
+    var agg = String(spec.agg || (yi >= 0 ? "sum" : "count")).toLowerCase();
+    if (yi < 0) { agg = "count"; }
+    var isDate = xc.type === "date";
+    if (!isDate && xc.type !== "text" && !(xc.type === "number" && xc.uniq <= 15)) { return null; }
+    var dayLevel = false;
+    if (isDate) {
+      var lo = null, hi = null;
+      for (var q = 0; q < tbl.n; q++) { var d0 = xc.vals[q]; if (d0) { if (lo === null || d0 < lo) { lo = d0; } if (hi === null || d0 > hi) { hi = d0; } } }
+      dayLevel = lo && hi && (hi - lo) < 62 * 86400000;
+    }
+    var sums = {}, cnts = {}, r;
+    for (r = 0; r < tbl.n; r++) {
+      var xv = xc.vals[r]; if (xv === null) { continue; }
+      var key = isDate ? (dayLevel ? isoDay(xv) : isoDay(xv).slice(0, 7)) : String(xv);
+      var yv = 1;
+      if (yi >= 0) { yv = tbl.cols[yi].vals[r]; if (yv === null) { continue; } }
+      sums[key] = (sums[key] || 0) + yv; cnts[key] = (cnts[key] || 0) + 1;
+    }
+    var keys = Object.keys(sums);
+    if (!keys.length) { return null; }
+    var val = function (k) { return agg === "avg" ? sums[k] / cnts[k] : sums[k]; };
+    var type = String(spec.type || "bar").toLowerCase();
+    if (isDate) {
+      keys.sort();
+    } else if (xc.type === "number") {
+      keys.sort(function (a, b) { return Number(a) - Number(b); });
+    } else {
+      keys.sort(function (a, b) { return val(b) - val(a); });
+      var top = type === "pie" ? 7 : 10;
+      if (keys.length > top) {
+        if (type === "pie" && agg !== "avg") {
+          var rest = 0;
+          keys.slice(top).forEach(function (k) { rest += sums[k]; });
+          var kept = keys.slice(0, top);
+          return { labels: kept.concat(["Other"]), values: kept.map(val).concat([rest]), agg: agg, ylabel: yi >= 0 ? tbl.cols[yi].name : "" };
+        }
+        keys = keys.slice(0, top);
+      }
+    }
+    return { labels: keys, values: keys.map(val), agg: agg, ylabel: yi >= 0 ? tbl.cols[yi].name : "", dated: isDate };
+  }
+
+  // ---- dashboard drawing ----
+  var charts = [];
+  var PALETTE = ["#4fd8ff", "#ffb454", "#7ee787", "#d2a8ff", "#ff7b72", "#79c0ff", "#f2cc60", "#56d4dd", "#a5d6ff", "#ffa657", "#c9d1d9"];
+
+  function fillList(id, items, emptyText) {
+    var ul = $(id); ul.textContent = "";
+    var list = (items && items.length) ? items : [emptyText];
+    list.slice(0, 8).forEach(function (t) {
+      var li = document.createElement("li"); li.textContent = String(t); ul.appendChild(li);
+    });
+  }
+
+  function renderDashboard(tbl, spec, fileName) {
+    return loadLib("chart").then(function () {
+      charts.forEach(function (c) { try { c.destroy(); } catch (e) {} });
+      charts = [];
+      $("dtitle").textContent = String(spec.title || fileName).slice(0, 120);
+      $("dsummary").textContent = String(spec.summary || "");
+      var kp = $("dkpis"); kp.textContent = "";
+      (spec.kpis || []).slice(0, 6).forEach(function (k) {
+        var res = kpiValue(tbl, k || {});
+        if (!res) { return; }
+        var box = document.createElement("div"); box.className = "kpi";
+        var v = document.createElement("div"); v.className = "kv"; v.textContent = fmt(res.v);
+        var l = document.createElement("div"); l.className = "kl"; l.textContent = String(k.label || k.col || "Rows").slice(0, 60);
+        box.appendChild(v); box.appendChild(l); kp.appendChild(box);
+      });
+      var holder = $("dcharts"); holder.textContent = "";
+      var skipped = [];
+      (spec.charts || []).slice(0, 6).forEach(function (cs) {
+        cs = cs || {};
+        var data = chartData(tbl, cs);
+        if (!data) { skipped.push(String(cs.title || cs.x || "a chart")); return; }
+        var card = document.createElement("div"); card.className = "chartcard";
+        var h = document.createElement("h3"); h.textContent = String(cs.title || (data.agg + " by " + cs.x)).slice(0, 100);
+        var wrap = document.createElement("div"); wrap.className = "chartbox";
+        var cv = document.createElement("canvas");
+        wrap.appendChild(cv); card.appendChild(h); card.appendChild(wrap); holder.appendChild(card);
+        var type = String(cs.type || "bar").toLowerCase();
+        var tick = "#9db8c9", grid = "rgba(120,160,190,0.15)";
+        var cfgc;
+        if (type === "pie") {
+          cfgc = { type: "doughnut", data: { labels: data.labels, datasets: [{ data: data.values, backgroundColor: data.labels.map(function (x, i) { return PALETTE[i % PALETTE.length]; }), borderColor: "#0b1220", borderWidth: 2 }] },
+            options: { maintainAspectRatio: false, plugins: { legend: { position: "right", labels: { color: tick } } } } };
+        } else if (type === "line" && data.dated) {
+          cfgc = { type: "line", data: { labels: data.labels, datasets: [{ data: data.values, borderColor: PALETTE[0], backgroundColor: "rgba(79,216,255,0.15)", fill: true, tension: 0.3, pointRadius: 3 }] },
+            options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tick }, grid: { color: grid } }, y: { ticks: { color: tick }, grid: { color: grid }, beginAtZero: true } } } };
+        } else {
+          var longLabels = data.labels.some(function (x) { return String(x).length > 12; });
+          cfgc = { type: "bar", data: { labels: data.labels, datasets: [{ data: data.values, backgroundColor: PALETTE[0], borderRadius: 4 }] },
+            options: { indexAxis: longLabels ? "y" : "x", maintainAspectRatio: false, plugins: { legend: { display: false } },
+              scales: { x: { ticks: { color: tick }, grid: { color: grid } }, y: { ticks: { color: tick }, grid: { color: grid } } } } };
+        }
+        charts.push(new window.Chart(cv, cfgc));
+      });
+      var checks = (spec.checks || []).slice();
+      if (skipped.length) { checks.push("I could not draw: " + skipped.join(", ") + " (the columns did not fit that chart)."); }
+      fillList("dinsights", spec.insights, "No insights were returned.");
+      fillList("dchecks", checks, "Nothing unusual found.");
+      $("dash").hidden = false;
+      $("dash").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  // ---- reading the different file types ----
+  var IMG_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif" };
+
+  function loadImage(buf, mime) {
+    return new Promise(function (res, rej) {
+      var url = URL.createObjectURL(new Blob([buf], { type: mime }));
+      var im = new Image();
+      im.onload = function () { URL.revokeObjectURL(url); res(im); };
+      im.onerror = function () { URL.revokeObjectURL(url); rej(new Error("I could not open that image.")); };
+      im.src = url;
+    });
+  }
+
+  // shrinks an image or canvas to a small JPEG so it travels quickly
+  function shrinkToJpeg(src, sw, sh) {
+    var tries = [[1100, 0.6], [900, 0.5], [750, 0.45], [640, 0.4]], b64 = "";
+    for (var i = 0; i < tries.length; i++) {
+      var scale = Math.min(1, tries[i][0] / Math.max(sw, sh));
+      var cv = document.createElement("canvas");
+      cv.width = Math.max(1, Math.round(sw * scale)); cv.height = Math.max(1, Math.round(sh * scale));
+      var cx = cv.getContext("2d");
+      cx.fillStyle = "#ffffff"; cx.fillRect(0, 0, cv.width, cv.height);
+      cx.drawImage(src, 0, 0, cv.width, cv.height);
+      b64 = cv.toDataURL("image/jpeg", tries[i][1]).split(",")[1] || "";
+      if (b64.length <= 90000) { break; }
+    }
+    return b64;
+  }
+
+  function pdfRead(buf) {
+    return loadLib("pdf").then(function () {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER;
+      return window.pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+    }).then(function (doc) {
+      var pages = Math.min(doc.numPages, 40), out = [], chain = Promise.resolve();
+      function one(p) {
+        chain = chain.then(function () {
+          return doc.getPage(p).then(function (pg) { return pg.getTextContent(); }).then(function (tc) {
+            out.push("[Page " + p + "]\n" + tc.items.map(function (it) { return it.str; }).join(" "));
+          });
+        });
+      }
+      for (var p = 1; p <= pages; p++) { one(p); }
+      return chain.then(function () { return { text: out.join("\n\n"), doc: doc, total: doc.numPages }; });
+    });
+  }
+
+  function presentReply(reply) {
+    var parts = String(reply).split(/\n\s*---+\s*\n/);
+    var spoken = parts[0].trim(), shown = String(reply);
+    if (parts.length > 1) { shown = parts[0].trim() + "\n\n" + parts.slice(1).join("\n\n").trim(); }
+    addLog("Sai", shown);
+    return spoken;
+  }
+
+  function sendText(name, text, question) {
+    var truncated = text.length > 40000;
+    var body = truncated ? text.slice(0, 40000) + "\n[...the rest of the file was cut off...]" : text;
+    setStatus("Sending the text...", "thinking");
+    return uploadString(body, function (a, b) { setStatus("Sending " + a + " of " + b + "...", "thinking"); }).then(function (up) {
+      setStatus("Sai is reading it...", "thinking");
+      return callBackend({ k: "text", id: up.id, of: up.of, name: name, question: question }, 150000);
+    }).then(function (d) { return presentReply(d.reply || "I got an empty reply."); });
+  }
+
+  function sendImage(name, b64, mime, question) {
+    setStatus("Sending the image...", "thinking");
+    return uploadString(b64, function (a, b) { setStatus("Sending " + a + " of " + b + "...", "thinking"); }).then(function (up) {
+      setStatus("Sai is looking at it...", "thinking");
+      return callBackend({ k: "image", id: up.id, of: up.of, mt: mime, name: name, question: question }, 150000);
+    }).then(function (d) { return presentReply(d.reply || "I got an empty reply."); });
+  }
+
+  function sendTable(name, aoa, sheetName, otherSheets, question) {
+    var tbl = buildTable(aoa);
+    var prof = profileOf(tbl, name, sheetName, otherSheets);
+    addLog("Sai", "Read " + tbl.n + " rows and " + tbl.cols.length + " columns on your computer. Only totals, counts and column names are being sent, not the rows.");
+    setStatus("Sending the summary...", "thinking");
+    return uploadString(prof, function (a, b) { setStatus("Sending " + a + " of " + b + "...", "thinking"); }).then(function (up) {
+      setStatus("Sai is analyzing...", "thinking");
+      return callBackend({ k: "table", id: up.id, of: up.of, name: name, question: question }, 150000);
+    }).then(function (d) {
+      var spec = d.table || {};
+      return renderDashboard(tbl, spec, name).then(function () {
+        addLog("Sai", String(spec.summary || "Your dashboard is ready below."));
+        return String(spec.summary || "Your dashboard is ready.");
+      });
+    });
+  }
+
+  function route(name, buf, question) {
+    var ext = (name.split(".").pop() || "").toLowerCase();
+    if (ext === "csv" || ext === "tsv") {
+      var text = new TextDecoder("utf-8").decode(new Uint8Array(buf));
+      return sendTable(name, parseCSV(text), "", [], question);
+    }
+    if (ext === "xlsx" || ext === "xls" || ext === "xlsm") {
+      return loadLib("xlsx").then(function () {
+        var wb = window.XLSX.read(buf, { type: "array", cellDates: true });
+        var best = null, bestRows = -1, info = [];
+        wb.SheetNames.forEach(function (sn) {
+          var aoa = window.XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: null, blankrows: false });
+          info.push(sn + " (" + aoa.length + " rows)");
+          if (aoa.length > bestRows) { bestRows = aoa.length; best = { name: sn, aoa: aoa }; }
+        });
+        if (!best || bestRows < 2) { throw new Error("I could not find a table in that workbook."); }
+        var others = info.filter(function (x) { return x.indexOf(best.name + " (") !== 0; });
+        if (others.length) { addLog("Sai", "Using the sheet \"" + best.name + "\", the biggest one. Other sheets: " + others.join(", ") + "."); }
+        return sendTable(name, best.aoa, best.name, others, question);
+      });
+    }
+    if (ext === "docx") {
+      return loadLib("mammoth").then(function () {
+        return window.mammoth.extractRawText({ arrayBuffer: buf });
+      }).then(function (r) {
+        if (!r.value || r.value.trim().length < 5) { throw new Error("That Word file has no readable text."); }
+        return sendText(name, r.value, question);
+      });
+    }
+    if (ext === "doc") { return Promise.reject(new Error("Old .doc files are not supported. Please save it as .docx and try again.")); }
+    if (ext === "pdf") {
+      return pdfRead(buf).then(function (res) {
+        var plain = res.text.replace(/\[Page \d+\]/g, "").replace(/\s+/g, "");
+        if (plain.length >= 60) {
+          if (res.total > 40) { addLog("Sai", "That PDF has " + res.total + " pages. I read the first 40."); }
+          return sendText(name, res.text, question);
+        }
+        addLog("Sai", "That PDF looks scanned, so I will read its first page as a picture.");
+        return res.doc.getPage(1).then(function (pg) {
+          var vp = pg.getViewport({ scale: 1.6 });
+          var cv = document.createElement("canvas"); cv.width = vp.width; cv.height = vp.height;
+          return pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise.then(function () {
+            return sendImage(name + " (page 1)", shrinkToJpeg(cv, cv.width, cv.height), "image/jpeg", question);
+          });
+        });
+      });
+    }
+    if (IMG_TYPES[ext]) {
+      return loadImage(buf, IMG_TYPES[ext]).then(function (im) {
+        return sendImage(name, shrinkToJpeg(im, im.naturalWidth, im.naturalHeight), "image/jpeg", question);
+      });
+    }
+    if (ext === "txt" || ext === "md" || ext === "json" || ext === "log") {
+      return sendText(name, new TextDecoder("utf-8").decode(new Uint8Array(buf)), question);
+    }
+    return Promise.reject(new Error("I cannot read ." + ext + " files yet. I can read Excel, CSV, PDF, Word (.docx), text and image files."));
+  }
+
+  function runFile(name, getBuf) {
+    if (busy) { addLog("Sai", "One moment, I am still working on the last request."); return; }
+    if (!cfg.url || !cfg.secret) {
+      $("settings").open = true;
+      addLog("Sai", "Please add my web app link and passphrase in Settings first.");
+      return;
+    }
+    var question = $("fq").value.trim().slice(0, 400);
+    busy = true;
+    addLog("You", "File: " + name + (question ? "  (" + question + ")" : ""));
+    setStatus("Opening " + name + "...", "thinking");
+    var fname = name;
+    Promise.resolve().then(getBuf).then(function (got) {
+      var buf = got;
+      if (got && got.buf) { buf = got.buf; if (got.name) { fname = got.name; } }
+      if (buf.byteLength > 25 * 1024 * 1024) { throw new Error("That file is larger than 25 MB."); }
+      return route(fname, buf, question);
+    }).then(function (spoken) {
+      busy = false;
+      speakOrSkip(spoken);
+    }).catch(function (e) {
+      busy = false;
+      var msg = (e && e.message) ? e.message : String(e);
+      addLog("Sai", "I could not process that file. " + msg);
+      speakOrSkip("I could not process that file.");
+    });
+  }
+
+  function pickedFile(f) {
+    if (!f) { return; }
+    runFile(f.name, function () { return f.arrayBuffer(); });
+  }
+
+  $("pick").addEventListener("click", function () { $("fileinput").click(); });
+  $("fileinput").addEventListener("change", function () {
+    var f = $("fileinput").files[0];
+    $("fileinput").value = "";
+    pickedFile(f);
+  });
+  ["dragenter", "dragover"].forEach(function (evn) {
+    window.addEventListener(evn, function (e) { e.preventDefault(); $("drop").classList.add("over"); });
+  });
+  window.addEventListener("dragleave", function (e) { if (!e.relatedTarget) { $("drop").classList.remove("over"); } });
+  window.addEventListener("drop", function (e) {
+    e.preventDefault();
+    $("drop").classList.remove("over");
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    pickedFile(f);
+  });
+
+  // ---- Google Drive folder ----
+  function driveNote(t) { $("drivenote").textContent = t; }
+  $("driverefresh").addEventListener("click", function () {
+    if (!cfg.url || !cfg.secret) { $("settings").open = true; driveNote("Add the link and passphrase in Settings first."); return; }
+    driveNote("Looking in your Drive folder...");
+    callBackend({ k: "list" }, 60000).then(function (d) {
+      var sel = $("drive"); sel.textContent = "";
+      var files = d.files || [];
+      if (!files.length) {
+        var o0 = document.createElement("option"); o0.value = ""; o0.textContent = "(no files yet)"; sel.appendChild(o0);
+        driveNote("The folder \"" + (d.folder || "Sai Files") + "\" in your Google Drive is empty. Put files in it, then press Refresh.");
+        return;
+      }
+      files.forEach(function (f) {
+        var o = document.createElement("option"); o.value = f.id; o.textContent = f.name + "  (" + f.mod + ")"; o.setAttribute("data-name", f.name);
+        sel.appendChild(o);
+      });
+      driveNote(files.length + " file(s) in \"" + (d.folder || "Sai Files") + "\".");
+    }).catch(function (e) { driveNote("Could not list the folder: " + e.message); });
+  });
+  $("driveload").addEventListener("click", function () {
+    var id = $("drive").value;
+    if (!id) { driveNote("Press Refresh first, then pick a file."); return; }
+    var nm = $("drive").options[$("drive").selectedIndex].getAttribute("data-name") || "file";
+    runFile(nm, function () {
+      setStatus("Getting " + nm + " from Drive...", "thinking");
+      return callBackend({ k: "drive", id: id }, 150000).then(function (d) {
+        var f = d.file || {};
+        var bin = atob(f.b64 || ""), arr = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) { arr[i] = bin.charCodeAt(i); }
+        return { buf: arr.buffer, name: f.name || nm };
+      });
+    });
+  });
+
+  $("dprint").addEventListener("click", function () { window.print(); });
+  $("dclose").addEventListener("click", function () { $("dash").hidden = true; });
 
   function sendTyped() {
     var v = $("typed").value.trim();

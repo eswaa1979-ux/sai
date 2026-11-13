@@ -246,12 +246,14 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 
     window[cbName] = finish;
     timer = setTimeout(function () { finish({ error: "Timed out waiting for the backend" }); }, 90000);
+    script.referrerPolicy = "no-referrer";
     script.onerror = function () { finish({ error: "Could not load the backend. Check the link, and that the latest version is deployed." }); };
     var payload = JSON.stringify({ text: text.slice(0, 1500) });
     script.src = cfg.url + (cfg.url.indexOf("?") < 0 ? "?" : "&") + "callback=" + cbName +
       "&secret=" + encodeURIComponent(cfg.secret) +
       "&sid=" + encodeURIComponent(sid) +
       "&detail=" + (detailed ? "1" : "0") +
+      "&t=" + Date.now() +
       "&q=" + encodeURIComponent(payload);
     document.body.appendChild(script);
   }

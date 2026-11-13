@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sai</title>
+<style>
+:root {
+  --bg: #05080f;
+  --panel: #0b1220;
+  --line: #16314a;
+  --cyan: #4fd8ff;
+  --cyan-dim: #1d6f8a;
+  --ink: #d8eefa;
+  --muted: #7f9bb0;
+  --warn: #ffb454;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { background: radial-gradient(ellipse at 50% 0%, #0b1a2c 0%, var(--bg) 60%); color: var(--ink); font-family: "Segoe UI", system-ui, sans-serif; line-height: 1.5; }
+.wrap { max-width: 640px; margin: 0 auto; padding: 24px 16px 40px; display: flex; flex-direction: column; gap: 16px; align-items: center; }
+h1 { margin: 0; font-size: 22px; letter-spacing: .5em; font-weight: 600; color: var(--cyan); padding-left: .5em; }
+#status { color: var(--muted); font-size: 14px; min-height: 21px; text-align: center; }
+
+.reactor { width: 200px; height: 200px; position: relative; margin: 8px auto; }
+.ring { position: absolute; border-radius: 50%; }
+.r1 { inset: 0; border: 2px solid var(--cyan-dim); }
+.r2 { inset: 22px; border: 2px dashed var(--cyan); animation: spin 14s linear infinite; }
+.r3 { inset: 46px; border: 3px solid var(--cyan-dim); }
+.core { position: absolute; inset: 70px; border-radius: 50%; background: radial-gradient(circle, #d9f7ff 0, var(--cyan) 45%, #0a4f66 100%); box-shadow: 0 0 30px var(--cyan); }
+.reactor.idle .core { opacity: .5; box-shadow: 0 0 10px var(--cyan-dim); }
+.reactor.listening .core { animation: pulse 1.8s ease-in-out infinite; }
+.reactor.thinking .r2 { animation-duration: 2s; }
+.reactor.speaking .core { animation: talk .45s ease-in-out infinite alternate; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 50% { transform: scale(1.12); box-shadow: 0 0 46px var(--cyan); } }
+@keyframes talk { to { transform: scale(1.2); box-shadow: 0 0 56px var(--cyan); } }
+@media (prefers-reduced-motion: reduce) { .reactor * { animation: none !important; } }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
+button { font: 600 15px "Segoe UI", system-ui, sans-serif; border-radius: 10px; padding: 10px 20px; border: 1px solid var(--cyan); background: transparent; color: var(--cyan); cursor: pointer; }
+button.main { background: var(--cyan); color: #04202b; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+label { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 8px; }
+
+.heard { color: var(--muted); font-size: 14px; min-height: 21px; text-align: center; font-style: italic; }
+.log { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.msg { font-size: 15px; }
+.msg b { display: inline-block; min-width: 40px; color: var(--cyan); font-weight: 600; }
+.msg.you b { color: var(--muted); }
+.typebox { width: 100%; display: flex; gap: 8px; }
+input[type="text"], input[type="password"] { flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 10px 12px; font: 15px "Segoe UI", system-ui, sans-serif; }
+details { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; }
+summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+.set { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.set label { flex-direction: column; align-items: stretch; gap: 4px; }
+.hint { color: var(--muted); font-size: 13px; text-align: center; }
+.warn { color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SAI</h1>
+  <div id="status">Press Start Sai</div>
+  <div class="reactor idle" id="reactor"><div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div><div class="core"></div></div>
+
+  <div class="controls">
+    <button class="main" id="start" type="button">Start Sai</button>
+    <label><input type="checkbox" id="wake" checked> Wait for the word "Sai"</label>
+  </div>
+  <div class="heard" id="heard"></div>
+  <div class="log" id="log" aria-live="polite"></div>
+
+  <div class="typebox">
+    <input type="text" id="typed" placeholder="Or type to Sai and press Enter" aria-label="Type a message to Sai">
+    <button type="button" id="send">Send</button>
+  </div>
+
+  <details id="settings" open>
+    <summary>Settings</summary>
+    <div class="set">
+      <label>Web app link from Apps Script (ends with /exec)<input type="text" id="url" placeholder="https://script.google.com/macros/s/.../exec"></label>
+      <label>Your passphrase (SAI_SECRET)<input type="password" id="secret" autocomplete="off"></label>
+      <button type="button" id="save">Save settings</button>
+    </div>
+  </details>
+  <div class="hint" id="hint">Try: "Sai, what is in my inbox?" Use Chrome or Edge.</div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var cfg = { url: "", secret: "" };
+  try { cfg.url = localStorage.getItem("sai_url") || ""; cfg.secret = localStorage.getItem("sai_secret") || ""; } catch (e) {}
+  $("url").value = cfg.url;
+  $("secret").value = cfg.secret;
+  if (cfg.url && cfg.secret) { $("settings").open = false; }
+
+  var rec = null, listening = false, speaking = false, busy = false, awaiting = false, history = [];
+
+  function setStatus(text, mode) {
+    $("status").textContent = text;
+    $("reactor").className = "reactor " + mode;
+  }
+  function addLog(who, text) {
+    var row = document.createElement("div");
+    row.className = "msg " + (who === "You" ? "you" : "sai");
+    var b = document.createElement("b"); b.textContent = who;
+    var s = document.createElement("span"); s.textContent = " " + text;
+    row.appendChild(b); row.appendChild(s);
+    $("log").appendChild(row);
+    $("log").scrollTop = $("log").scrollHeight;
+  }
+
+  $("save").addEventListener("click", function () {
+    cfg.url = $("url").value.trim();
+    cfg.secret = $("secret").value.trim();
+    try { localStorage.setItem("sai_url", cfg.url); localStorage.setItem("sai_secret", cfg.secret); } catch (e) {}
+    $("settings").open = false;
+    setStatus("Settings saved", "idle");
+  });
+
+  function pickVoice() {
+    var v = window.speechSynthesis.getVoices();
+    var tests = [/Google UK English Male/i, /Microsoft (Ryan|George|Thomas|Prabhat)/i, /Daniel/i, /en-GB/i, /en-IN/i, /^en/i];
+    for (var i = 0; i < tests.length; i++) {
+      for (var j = 0; j < v.length; j++) {
+        if (tests[i].test(v[j].name) || tests[i].test(v[j].lang)) { return v[j]; }
+      }
+    }
+    return null;
+  }
+
+  function startRec() {
+    if (!listening || speaking || busy || !rec) { return; }
+    try { rec.start(); } catch (e) {}
+    setStatus(awaiting ? "Yes? I'm listening..." : "Listening...", "listening");
+  }
+
+  function say(text) {
+    speaking = true;
+    if (rec) { try { rec.stop(); } catch (e) {} }
+    window.speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    var voice = pickVoice();
+    if (voice) { u.voice = voice; u.lang = voice.lang; } else { u.lang = "en-GB"; }
+    u.rate = 1;
+    u.pitch = 0.9;
+    var done = function () {
+      speaking = false;
+      if (listening) { setTimeout(startRec, 300); } else { setStatus("Ready", "idle"); }
+    };
+    u.onend = done;
+    u.onerror = done;
+    setStatus("Speaking...", "speaking");
+    window.speechSynthesis.speak(u);
+  }
+
+  function ask(text) {
+    if (!cfg.url || !cfg.secret) {
+      $("settings").open = true;
+      addLog("Sai", "Please add my web app link and passphrase in Settings.");
+      say("Please add my web app link and passphrase in settings.");
+      return;
+    }
+    addLog("You", text);
+    history.push({ role: "user", content: text });
+    busy = true;
+    setStatus("Thinking...", "thinking");
+    var cbName = "saicb" + Date.now();
+    var script = document.createElement("script");
+    var finished = false;
+    var timer = null;
+    function finish(d) {
+      if (finished) { return; }
+      finished = true;
+      clearTimeout(timer);
+      try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+      if (script.parentNode) { script.parentNode.removeChild(script); }
+      busy = false;
+      if (d && d.error) {
+        history.pop();
+        var msg = d.error === "Wrong secret" ? "That passphrase was rejected. Please check settings." : "Something went wrong on my side.";
+        addLog("Sai", msg + " (" + String(d.error).slice(0, 140) + ")");
+        say(msg);
+      } else if (d && d.reply) {
+        history.push({ role: "assistant", content: d.reply });
+        addLog("Sai", d.reply);
+        say(d.reply);
+      } else {
+        history.pop();
+        addLog("Sai", "I got an empty reply.");
+        say("I got an empty reply.");
+      }
+    }
+    window[cbName] = finish;
+    timer = setTimeout(function () { finish({ error: "Timed out waiting for the backend" }); }, 60000);
+    script.onerror = function () { finish({ error: "Could not load the backend. Check the link, and that the latest version is deployed." }); };
+    var msgs = history.slice(-4).map(function (m) { return { role: m.role, content: String(m.content).slice(0, 250) }; });
+    script.src = cfg.url + (cfg.url.indexOf("?") < 0 ? "?" : "&") + "callback=" + cbName +
+      "&secret=" + encodeURIComponent(cfg.secret) + "&q=" + encodeURIComponent(JSON.stringify(msgs));
+    document.body.appendChild(script);
+  }
+
+  function handleHeard(t) {
+    if (!t || busy || speaking) { return; }
+    $("heard").textContent = t;
+    var cmd = t;
+    if ($("wake").checked && !awaiting) {
+      var m = t.match(/\b(sai|sigh|sy|shy|cy)\b[,.!?]?\s*(.*)$/i);
+      if (!m) { return; }
+      cmd = m[2].trim();
+      if (!cmd) { awaiting = true; say("Yes?"); return; }
+    }
+    awaiting = false;
+    ask(cmd);
+  }
+
+  function makeRec() {
+    rec = new SR();
+    rec.lang = "en-IN";
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = function (ev) {
+      var interim = "";
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        var r = ev.results[i];
+        if (r.isFinal) { handleHeard(r[0].transcript.trim()); } else { interim += r[0].transcript; }
+      }
+      if (interim) { $("heard").textContent = interim; }
+    };
+    rec.onerror = function (ev) {
+      if (ev.error === "not-allowed" || ev.error === "service-not-allowed") {
+        listening = false;
+        $("start").textContent = "Start Sai";
+        setStatus("Microphone blocked. Allow it in the address bar, then press Start again.", "idle");
+      }
+    };
+    rec.onend = function () {
+      if (listening && !speaking && !busy) { setTimeout(startRec, 300); }
+    };
+  }
+
+  $("start").addEventListener("click", function () {
+    if (listening) {
+      listening = false; awaiting = false;
+      try { rec.stop(); } catch (e) {}
+      window.speechSynthesis.cancel();
+      $("start").textContent = "Start Sai";
+      setStatus("Ready", "idle");
+      return;
+    }
+    if (!SR) {
+      setStatus("This browser cannot listen. Please use Chrome or Edge.", "idle");
+      $("hint").className = "hint warn";
+      return;
+    }
+    if (!rec) { makeRec(); }
+    listening = true;
+    $("start").textContent = "Stop Sai";
+    var h = new Date().getHours();
+    var greet = h < 12 ? "Good morning" : (h < 17 ? "Good afternoon" : "Good evening");
+    say(greet + ". Sai online. How can I help?");
+  });
+
+  function sendTyped() {
+    var v = $("typed").value.trim();
+    if (!v || busy) { return; }
+    $("typed").value = "";
+    ask(v);
+  }
+  $("send").addEventListener("click", sendTyped);
+  $("typed").addEventListener("keydown", function (e) { if (e.key === "Enter") { sendTyped(); } });
+  if (window.speechSynthesis) { window.speechSynthesis.onvoiceschanged = function () {}; }
+  if (!SR) { $("hint").textContent = "Voice input needs Chrome or Edge. You can still type to Sai."; $("hint").className = "hint warn"; }
+})();
+</script>
+</body>
+</html>

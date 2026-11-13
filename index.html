@@ -19,7 +19,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
 body { background: radial-gradient(ellipse at 50% 0%, #0b1a2c 0%, var(--bg) 60%); color: var(--ink); font-family: "Segoe UI", system-ui, sans-serif; line-height: 1.5; }
-.wrap { max-width: 640px; margin: 0 auto; padding: 24px 16px 40px; display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 40px; display: flex; flex-direction: column; gap: 16px; align-items: center; }
 h1 { margin: 0; font-size: 22px; letter-spacing: .5em; font-weight: 600; color: var(--cyan); padding-left: .5em; }
 #status { color: var(--muted); font-size: 14px; min-height: 21px; text-align: center; }
 
@@ -38,23 +38,26 @@ h1 { margin: 0; font-size: 22px; letter-spacing: .5em; font-weight: 600; color: 
 @keyframes talk { to { transform: scale(1.2); box-shadow: 0 0 56px var(--cyan); } }
 @media (prefers-reduced-motion: reduce) { .reactor * { animation: none !important; } }
 
-.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: center; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: center; }
+.options { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; justify-content: center; }
 button { font: 600 15px "Segoe UI", system-ui, sans-serif; border-radius: 10px; padding: 10px 20px; border: 1px solid var(--cyan); background: transparent; color: var(--cyan); cursor: pointer; }
 button.main { background: var(--cyan); color: #04202b; }
-button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
-label { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 8px; }
+button.small { padding: 6px 12px; font-size: 13px; }
+button:focus-visible, input:focus-visible, summary:focus-visible, textarea:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+label { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 
 .heard { color: var(--muted); font-size: 14px; min-height: 21px; text-align: center; font-style: italic; }
-.log { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-.msg { font-size: 15px; }
-.msg b { display: inline-block; min-width: 40px; color: var(--cyan); font-weight: 600; }
+.log { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; max-height: 460px; min-height: 60px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.msg { font-size: 15px; display: flex; gap: 12px; }
+.msg b { flex: 0 0 44px; color: var(--cyan); font-weight: 600; }
 .msg.you b { color: var(--muted); }
+.msg span { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
 .typebox { width: 100%; display: flex; gap: 8px; }
 input[type="text"], input[type="password"] { flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line); color: var(--ink); border-radius: 10px; padding: 10px 12px; font: 15px "Segoe UI", system-ui, sans-serif; }
 details { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; }
 summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .set { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-.set label { flex-direction: column; align-items: stretch; gap: 4px; }
+.set label { flex-direction: column; align-items: stretch; gap: 4px; cursor: default; }
 .hint { color: var(--muted); font-size: 13px; text-align: center; }
 .warn { color: var(--warn); }
 </style>
@@ -67,7 +70,12 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 
   <div class="controls">
     <button class="main" id="start" type="button">Start Sai</button>
+    <button class="small" id="newchat" type="button">New chat</button>
+  </div>
+  <div class="options">
     <label><input type="checkbox" id="wake" checked> Wait for the word "Sai"</label>
+    <label><input type="checkbox" id="detail"> Detailed answers</label>
+    <label><input type="checkbox" id="mute"> Mute voice</label>
   </div>
   <div class="heard" id="heard"></div>
   <div class="log" id="log" aria-live="polite"></div>
@@ -85,7 +93,7 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       <button type="button" id="save">Save settings</button>
     </div>
   </details>
-  <div class="hint" id="hint">Try: "Sai, what is in my inbox?" Use Chrome or Edge.</div>
+  <div class="hint" id="hint">Try: "Sai, give me my morning briefing." Tick Detailed answers for longer replies on screen. Use Chrome or Edge.</div>
 </div>
 
 <script>
@@ -93,12 +101,28 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
   var $ = function (id) { return document.getElementById(id); };
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   var cfg = { url: "", secret: "" };
-  try { cfg.url = localStorage.getItem("sai_url") || ""; cfg.secret = localStorage.getItem("sai_secret") || ""; } catch (e) {}
+  var sid = null;
+  try {
+    cfg.url = localStorage.getItem("sai_url") || "";
+    cfg.secret = localStorage.getItem("sai_secret") || "";
+    sid = localStorage.getItem("sai_sid");
+  } catch (e) {}
+
+  function newSid() {
+    var c = "abcdefghijklmnopqrstuvwxyz0123456789", s = "";
+    for (var i = 0; i < 20; i++) { s += c.charAt(Math.floor(Math.random() * c.length)); }
+    return s;
+  }
+  if (!sid) {
+    sid = newSid();
+    try { localStorage.setItem("sai_sid", sid); } catch (e) {}
+  }
+
   $("url").value = cfg.url;
   $("secret").value = cfg.secret;
   if (cfg.url && cfg.secret) { $("settings").open = false; }
 
-  var rec = null, listening = false, speaking = false, busy = false, awaiting = false, history = [];
+  var rec = null, listening = false, speaking = false, busy = false, awaiting = false;
 
   function setStatus(text, mode) {
     $("status").textContent = text;
@@ -108,7 +132,7 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     var row = document.createElement("div");
     row.className = "msg " + (who === "You" ? "you" : "sai");
     var b = document.createElement("b"); b.textContent = who;
-    var s = document.createElement("span"); s.textContent = " " + text;
+    var s = document.createElement("span"); s.textContent = text;
     row.appendChild(b); row.appendChild(s);
     $("log").appendChild(row);
     $("log").scrollTop = $("log").scrollHeight;
@@ -120,6 +144,14 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     try { localStorage.setItem("sai_url", cfg.url); localStorage.setItem("sai_secret", cfg.secret); } catch (e) {}
     $("settings").open = false;
     setStatus("Settings saved", "idle");
+  });
+
+  $("newchat").addEventListener("click", function () {
+    sid = newSid();
+    try { localStorage.setItem("sai_sid", sid); } catch (e) {}
+    $("log").textContent = "";
+    $("heard").textContent = "";
+    setStatus(listening ? "New chat. Listening..." : "New chat started", listening ? "listening" : "idle");
   });
 
   function pickVoice() {
@@ -158,21 +190,31 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     window.speechSynthesis.speak(u);
   }
 
+  function speakOrSkip(text) {
+    if ($("mute").checked) {
+      speaking = false;
+      if (listening) { setTimeout(startRec, 200); } else { setStatus("Ready", "idle"); }
+      return;
+    }
+    say(text);
+  }
+
   function ask(text) {
     if (!cfg.url || !cfg.secret) {
       $("settings").open = true;
       addLog("Sai", "Please add my web app link and passphrase in Settings.");
-      say("Please add my web app link and passphrase in settings.");
+      speakOrSkip("Please add my web app link and passphrase in settings.");
       return;
     }
     addLog("You", text);
-    history.push({ role: "user", content: text });
     busy = true;
     setStatus("Thinking...", "thinking");
+    var detailed = $("detail").checked;
     var cbName = "saicb" + Date.now();
     var script = document.createElement("script");
     var finished = false;
     var timer = null;
+
     function finish(d) {
       if (finished) { return; }
       finished = true;
@@ -181,26 +223,36 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       if (script.parentNode) { script.parentNode.removeChild(script); }
       busy = false;
       if (d && d.error) {
-        history.pop();
         var msg = d.error === "Wrong secret" ? "That passphrase was rejected. Please check settings." : "Something went wrong on my side.";
         addLog("Sai", msg + " (" + String(d.error).slice(0, 140) + ")");
-        say(msg);
+        speakOrSkip(msg);
       } else if (d && d.reply) {
-        history.push({ role: "assistant", content: d.reply });
-        addLog("Sai", d.reply);
-        say(d.reply);
+        var reply = String(d.reply);
+        var spoken = reply, shown = reply;
+        if (detailed) {
+          var parts = reply.split(/\n\s*---+\s*\n/);
+          if (parts.length > 1) {
+            spoken = parts[0].trim();
+            shown = parts[0].trim() + "\n\n" + parts.slice(1).join("\n\n").trim();
+          }
+        }
+        addLog("Sai", shown);
+        speakOrSkip(spoken);
       } else {
-        history.pop();
         addLog("Sai", "I got an empty reply.");
-        say("I got an empty reply.");
+        speakOrSkip("I got an empty reply.");
       }
     }
+
     window[cbName] = finish;
-    timer = setTimeout(function () { finish({ error: "Timed out waiting for the backend" }); }, 60000);
+    timer = setTimeout(function () { finish({ error: "Timed out waiting for the backend" }); }, 90000);
     script.onerror = function () { finish({ error: "Could not load the backend. Check the link, and that the latest version is deployed." }); };
-    var msgs = history.slice(-4).map(function (m) { return { role: m.role, content: String(m.content).slice(0, 250) }; });
+    var payload = JSON.stringify({ text: text.slice(0, 1500) });
     script.src = cfg.url + (cfg.url.indexOf("?") < 0 ? "?" : "&") + "callback=" + cbName +
-      "&secret=" + encodeURIComponent(cfg.secret) + "&q=" + encodeURIComponent(JSON.stringify(msgs));
+      "&secret=" + encodeURIComponent(cfg.secret) +
+      "&sid=" + encodeURIComponent(sid) +
+      "&detail=" + (detailed ? "1" : "0") +
+      "&q=" + encodeURIComponent(payload);
     document.body.appendChild(script);
   }
 
@@ -212,7 +264,7 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
       var m = t.match(/\b(sai|sigh|sy|shy|cy)\b[,.!?]?\s*(.*)$/i);
       if (!m) { return; }
       cmd = m[2].trim();
-      if (!cmd) { awaiting = true; say("Yes?"); return; }
+      if (!cmd) { awaiting = true; speakOrSkip("Yes?"); return; }
     }
     awaiting = false;
     ask(cmd);
@@ -262,7 +314,7 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
     $("start").textContent = "Stop Sai";
     var h = new Date().getHours();
     var greet = h < 12 ? "Good morning" : (h < 17 ? "Good afternoon" : "Good evening");
-    say(greet + ". Sai online. How can I help?");
+    speakOrSkip(greet + ". Sai online. How can I help?");
   });
 
   function sendTyped() {

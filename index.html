@@ -246,16 +246,33 @@ summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 
     window[cbName] = finish;
     timer = setTimeout(function () { finish({ error: "Timed out waiting for the backend" }); }, 90000);
-    script.referrerPolicy = "no-referrer";
-    script.onerror = function () { finish({ error: "Could not load the backend. Check the link, and that the latest version is deployed." }); };
     var payload = JSON.stringify({ text: text.slice(0, 1500) });
-    script.src = cfg.url + (cfg.url.indexOf("?") < 0 ? "?" : "&") + "callback=" + cbName +
+    var url = cfg.url + (cfg.url.indexOf("?") < 0 ? "?" : "&") + "callback=" + cbName +
       "&secret=" + encodeURIComponent(cfg.secret) +
       "&sid=" + encodeURIComponent(sid) +
       "&detail=" + (detailed ? "1" : "0") +
       "&t=" + Date.now() +
       "&q=" + encodeURIComponent(payload);
-    document.body.appendChild(script);
+
+    function viaScript() {
+      script.referrerPolicy = "no-referrer";
+      script.onerror = function () { finish({ error: "Could not load the backend. Check the link, and that the latest version is deployed." }); };
+      script.src = url;
+      document.body.appendChild(script);
+    }
+
+    // First try fetch without cookies (avoids Google sign-in conflicts); fall back to the script tag.
+    var tried = false;
+    try {
+      fetch(url, { method: "GET", credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer" })
+        .then(function (r) { return r.text(); })
+        .then(function (t) {
+          var a = t.indexOf("("), b = t.lastIndexOf(")");
+          if (a < 0 || b < a) { throw new Error("bad reply"); }
+          finish(JSON.parse(t.slice(a + 1, b)));
+        })
+        .catch(function () { if (!finished && !tried) { tried = true; viaScript(); } });
+    } catch (e) { viaScript(); }
   }
 
   function handleHeard(t) {
